@@ -7,6 +7,9 @@ import tempfile
 import shutil
 import os
 from .crypt import WXBizMsgCrypt
+import sys
+
+uniencode = lambda s: (s.encode("utf-8") if isinstance(s, str) else s ) if sys.version>"3" else lambda s: s
 
 from .models import WxRequest, WxResponse
 from .models import WxMusic, WxArticle, WxImage, WxVoice, WxVideo, WxLink
@@ -36,7 +39,7 @@ class WxApplication(object):
 
         sign_ele = [self.token, timestamp, nonce]
         sign_ele.sort()
-        if(signature == sha1(''.join(sign_ele)).hexdigest()):
+        if(signature == sha1(uniencode(''.join(sign_ele))).hexdigest()):
             return True, echostr
         else:
             return None
@@ -62,9 +65,9 @@ class WxApplication(object):
             timestamp = params.get('timestamp', '')
             nonce = params.get('nonce', '')
             if encrypt_type == 'aes':
-                cpt = WXBizMsgCrypt(self.token,
-                                    self.aes_key, self.app_id)
-                err, xml = cpt.DecryptMsg(xml, msg_signature, timestamp, nonce)
+                cpt = WXBizMsgCrypt(uniencode(self.token),
+                                    uniencode(self.aes_key), uniencode(self.app_id))
+                err, xml = cpt.DecryptMsg(uniencode(xml), uniencode(msg_signature), uniencode(timestamp), uniencode(nonce))
                 if err:
                     return 'decrypt message error, code : %s' % err
             else:
@@ -83,7 +86,7 @@ class WxApplication(object):
         # 加密消息
         if encrypt_type != '' and encrypt_type != 'raw':
             if encrypt_type == 'aes':
-                err, result = cpt.EncryptMsg(result, nonce)
+                err, result = cpt.EncryptMsg(uniencode(result), uniencode(nonce))
                 if err:
                     return 'encrypt message error , code %s' % err
             else:

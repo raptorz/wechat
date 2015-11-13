@@ -9,6 +9,10 @@ from .models import WxTextResponse, WxImageResponse, WxVoiceResponse,\
     WxVideoResponse, WxNewsResponse, APIError, WxEmptyResponse
 from .official import WxApplication as BaseApplication, WxBaseApi
 from .crypt import WXBizMsgCrypt
+import sys
+
+uniencode = lambda s: (s.encode("utf-8") if isinstance(s, str) else s ) if sys.version>"3" else lambda s: s
+
 
 __all__ = ['WxRequest', 'WxResponse', 'WxArticle', 'WxImage',
            'WxVoice', 'WxVideo', 'WxLink', 'WxTextResponse',
@@ -40,16 +44,16 @@ class WxApplication(BaseApplication):
         msg_signature = params.get('msg_signature', '')
         echostr = params.get('echostr', '')
 
-        cpt = WXBizMsgCrypt(self.token, self.aes_key, self.corp_id)
+        cpt = WXBizMsgCrypt(uniencode(self.token), uniencode(self.aes_key), uniencode(self.corp_id))
 
-        err, echo = cpt.VerifyURL(msg_signature, timestamp, nonce, echostr)
+        err, echo = cpt.VerifyURL(uniencode(msg_signature), uniencode(timestamp), uniencode(nonce), uniencode(echostr))
 
         if err:
             return 'invalid request'
         if not xml:
             return echo
 
-        err, xml = cpt.DecryptMsg(xml, msg_signature, timestamp, nonce)
+        err, xml = cpt.DecryptMsg(uniencode(xml), uniencode(msg_signature), uniencode(timestamp), uniencode(nonce))
         if err:
             return 'decrypt message error , code %s' % err
 
@@ -65,7 +69,7 @@ class WxApplication(BaseApplication):
         if not result:
             return ''
 
-        err, result = cpt.EncryptMsg(result, nonce)
+        err, result = cpt.EncryptMsg(uniencode(result), uniencode(nonce))
         if err:
             return 'encrypt message error , code %s' % err
         return result

@@ -10,8 +10,9 @@ from Crypto.Cipher import AES
 import xml.etree.cElementTree as ET
 import sys
 import socket
-reload(sys)
-sys.setdefaultencoding('utf-8')
+if sys.version<"3":
+    reload(sys)
+    sys.setdefaultencoding('utf-8')
 
 WXBizMsgCrypt_OK = 0
 WXBizMsgCrypt_ValidateSignature_Error = -40001
