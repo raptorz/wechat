@@ -11,6 +11,8 @@ import sys
 
 uniencode = lambda s: (s.encode("utf-8") if isinstance(s, str) else s ) if sys.version>"3" else lambda s: s
 
+from datetime import datetime, timedelta
+
 from .models import WxRequest, WxResponse
 from .models import WxMusic, WxArticle, WxImage, WxVoice, WxVideo, WxLink
 from .models import WxTextResponse, WxImageResponse, WxVoiceResponse,\
@@ -197,17 +199,19 @@ class WxBaseApi(object):
         self.appid = appid
         self.appsecret = appsecret
         self._access_token = None
+        self._expires = datetime.now() + timedelta(seconds=-7200) 
         self.api_entry = api_entry or self.API_PREFIX
 
     @property
     def access_token(self):
-        if not self._access_token:
+        if not self._access_token or self._expires and self._expires < datetime.now():
+            self._expires = None
             token, err = self.get_access_token()
             if not err:
                 self._access_token = token['access_token']
-                return self._access_token
+                self._expires = datetime.now() + timedelta(seconds=token['expires_in'])
             else:
-                return None
+                self._access_token = None
         return self._access_token
 
     def set_access_token(self, token):
