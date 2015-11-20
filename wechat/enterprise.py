@@ -118,7 +118,7 @@ class WxApi(WxBaseApi):
         params.update(kwargs)
         rsp = requests.get(url or self.api_entry + 'cgi-bin/gettoken',
                            params=params,
-                           verify=False)
+                           verify=WxBaseApi.VERIFY)
         return self._process_response(rsp)
 
     def departments(self):

@@ -194,6 +194,7 @@ class WxApplication(object):
 class WxBaseApi(object):
 
     API_PREFIX = 'https://api.weixin.qq.com/cgi-bin/'
+    VERIFY = True
 
     def __init__(self, appid, appsecret, api_entry=None):
         self.appid = appid
@@ -233,7 +234,7 @@ class WxBaseApi(object):
             params = {}
         params['access_token'] = self.access_token
         rsp = requests.get(self.api_entry + path, params=params,
-                           verify=False)
+                           verify=WxBaseApi.VERIFY)
         return self._process_response(rsp)
 
     def _post(self, path, data, ctype='json'):
@@ -245,7 +246,7 @@ class WxBaseApi(object):
             path += '?access_token=' + self.access_token
         if ctype == 'json':
             data = json.dumps(data, ensure_ascii=False).encode('utf-8')
-        rsp = requests.post(path, data=data, headers=headers, verify=False)
+        rsp = requests.post(path, data=data, headers=headers, verify=WxBaseApi.VERIFY)
         return self._process_response(rsp)
 
     def upload_media(self, mtype, file_path=None, file_content=None,
@@ -268,7 +269,7 @@ class WxBaseApi(object):
             f.close()
         media = open(tmp_path, 'rb')
         rsp = requests.post(path, files={'media': media},
-                            verify=False)
+                            verify=WxBaseApi.VERIFY)
         media.close()
         os.remove(tmp_path)
         return self._process_response(rsp)
@@ -277,7 +278,7 @@ class WxBaseApi(object):
         rsp = requests.get(self.api_entry + url,
                            params={'media_id': media_id,
                                    'access_token': self.access_token},
-                           verify=False)
+                           verify=WxBaseApi.VERIFY)
         if rsp.status_code == 200:
             save_file = open(to_path, 'wb')
             save_file.write(rsp.content)
@@ -316,7 +317,7 @@ class WxApi(WxBaseApi):
         if kwargs:
             params.update(kwargs)
         rsp = requests.get(url or self.api_entry + 'token', params=params,
-                           verify=False)
+                           verify=WxBaseApi.VERIFY)
         return self._process_response(rsp)
 
     def user_info(self, user_id, lang='zh_CN'):
