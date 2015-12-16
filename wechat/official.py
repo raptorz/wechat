@@ -388,12 +388,10 @@ class WxApi(WxBaseApi):
                           {'touser': to_user, 'msgtype': 'news',
                            'news': {'articles': news}})
 
-    def send_template(self, to_user, template_id, data):
+    def send_template(self, to_user, template_id, url, data):
         return self._post('message/template/send',
                           {'touser': to_user, 'template_id': template_id,
-                           'url': 'http://weixin.qq.com/download',
-                           'data': data}
-                          )
+                           'url': url, 'data': data})
 
     def create_group(self, name):
         return self._post('groups/create',
