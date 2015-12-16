@@ -1,11 +1,11 @@
-#encoding=utf-8
+# encoding=utf-8
 
 from xml.dom import minidom
 import collections
 import time
 import sys
 
-if sys.version>"3":
+if sys.version > "3":
     long = int
     unicode = str
 

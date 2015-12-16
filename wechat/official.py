@@ -1,22 +1,20 @@
 # encoding=utf-8
 
-from hashlib import sha1
+from functools import wraps
 import requests
 import json
 import tempfile
 import shutil
 import os
-from .crypt import WXBizMsgCrypt
+from .crypt import WXBizMsgCrypt, SHA1
 import sys
-
-uniencode = lambda s: (s.encode("utf-8") if isinstance(s, str) else s ) if sys.version>"3" else lambda s: s
-
 from datetime import datetime, timedelta
 
 from .models import WxRequest, WxResponse
 from .models import WxMusic, WxArticle, WxImage, WxVoice, WxVideo, WxLink
 from .models import WxTextResponse, WxImageResponse, WxVoiceResponse,\
     WxVideoResponse, WxMusicResponse, WxNewsResponse, APIError, WxEmptyResponse
+
 
 __all__ = ['WxRequest', 'WxResponse', 'WxMusic', 'WxArticle', 'WxImage',
            'WxVoice', 'WxVideo', 'WxLink', 'WxTextResponse',
@@ -39,9 +37,7 @@ class WxApplication(object):
         signature = params.get('signature', '')
         echostr = params.get('echostr', '')
 
-        sign_ele = [self.token, timestamp, nonce]
-        sign_ele.sort()
-        if(signature == sha1(uniencode(''.join(sign_ele))).hexdigest()):
+        if (signature == SHA1.getSignature(self.token, timestamp, nonce)):
             return True, echostr
         else:
             return None
@@ -67,9 +63,8 @@ class WxApplication(object):
             timestamp = params.get('timestamp', '')
             nonce = params.get('nonce', '')
             if encrypt_type == 'aes':
-                cpt = WXBizMsgCrypt(uniencode(self.token),
-                                    uniencode(self.aes_key), uniencode(self.app_id))
-                err, xml = cpt.DecryptMsg(uniencode(xml), uniencode(msg_signature), uniencode(timestamp), uniencode(nonce))
+                cpt = WXBizMsgCrypt(self.token, self.aes_key, self.app_id)
+                err, xml = cpt.DecryptMsg(xml, msg_signature, timestamp, nonce)
                 if err:
                     return 'decrypt message error, code : %s' % err
             else:
@@ -88,7 +83,7 @@ class WxApplication(object):
         # 加密消息
         if encrypt_type != '' and encrypt_type != 'raw':
             if encrypt_type == 'aes':
-                err, result = cpt.EncryptMsg(uniencode(result), uniencode(nonce))
+                err, result = cpt.EncryptMsg(result, nonce)
                 if err:
                     return 'encrypt message error , code %s' % err
             else:
@@ -191,32 +186,31 @@ class WxApplication(object):
         pass
 
 
+def retry_token(fn):
+    def wrapper(self, *args, **kwargs):
+        content, err = fn(self, *args, **kwargs)
+        if not content and err and err.code in [40001, 40014, 42001]:
+            self.token_manager.set_token(self.get_access_token())
+            return fn(self, *args, **kwargs)
+        else:
+            return content, err
+    return wrapper
+
+
 class WxBaseApi(object):
 
     API_PREFIX = 'https://api.weixin.qq.com/cgi-bin/'
     VERIFY = True
 
-    def __init__(self, appid, appsecret, api_entry=None):
+    def __init__(self, appid, appsecret, token_manager, api_entry=None):
         self.appid = appid
         self.appsecret = appsecret
-        self._access_token = None
-        self._expires = datetime.now() + timedelta(seconds=-7200) 
+        self.token_manager = token_manager
         self.api_entry = api_entry or self.API_PREFIX
 
     @property
     def access_token(self):
-        if not self._access_token or self._expires and self._expires < datetime.now():
-            self._expires = None
-            token, err = self.get_access_token()
-            if not err:
-                self._access_token = token['access_token']
-                self._expires = datetime.now() + timedelta(seconds=token['expires_in'])
-            else:
-                self._access_token = None
-        return self._access_token
-
-    def set_access_token(self, token):
-        self._access_token = token
+        return self.token_manager.get_token(self.get_access_token)
 
     def _process_response(self, rsp):
         if rsp.status_code != 200:
@@ -229,6 +223,7 @@ class WxBaseApi(object):
             return None, APIError(content['errcode'], content['errmsg'])
         return content, None
 
+    @retry_token
     def _get(self, path, params=None):
         if not params:
             params = {}
@@ -237,6 +232,7 @@ class WxBaseApi(object):
                            verify=WxBaseApi.VERIFY)
         return self._process_response(rsp)
 
+    @retry_token
     def _post(self, path, data, ctype='json'):
         headers = {'Content-type': 'application/json'}
         path = self.api_entry + path
@@ -246,7 +242,8 @@ class WxBaseApi(object):
             path += '?access_token=' + self.access_token
         if ctype == 'json':
             data = json.dumps(data, ensure_ascii=False).encode('utf-8')
-        rsp = requests.post(path, data=data, headers=headers, verify=WxBaseApi.VERIFY)
+        rsp = requests.post(path, data=data, headers=headers,
+                            verify=WxBaseApi.VERIFY)
         return self._process_response(rsp)
 
     def upload_media(self, mtype, file_path=None, file_content=None,
@@ -390,6 +387,13 @@ class WxApi(WxBaseApi):
         return self._post('message/custom/send',
                           {'touser': to_user, 'msgtype': 'news',
                            'news': {'articles': news}})
+
+    def send_template(self, to_user, template_id, data):
+        return self._post('message/template/send',
+                          {'touser': to_user, 'template_id': template_id,
+                           'url': 'http://weixin.qq.com/download',
+                           'data': data}
+                          )
 
     def create_group(self, name):
         return self._post('groups/create',
