@@ -127,8 +127,12 @@ class WxApplication(object):
         }
 
     def on_event(self, event):
-        func = self.event_map().get(event.Event, None)
+        func = self.event_map().get(event.Event, self.on_other_event)
         return func(event)
+
+    def on_other_event(self, event):
+        # Unhandled event
+        return WxEmptyResponse()
 
     def on_subscribe(self, sub):
         return WxTextResponse(self.WELCOME_TXT, sub)
@@ -190,7 +194,7 @@ def retry_token(fn):
     def wrapper(self, *args, **kwargs):
         content, err = fn(self, *args, **kwargs)
         if not content and err and err.code in [40001, 40014, 42001]:
-            self.token_manager.set_token(self.get_access_token())
+            self.token_manager.refresh_token(self.get_access_token)
             return fn(self, *args, **kwargs)
         else:
             return content, err

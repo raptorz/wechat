@@ -17,18 +17,17 @@ class TokenManager(object):
                     break
         elif not token or expires and expires < datetime.now():
             self.expires = None
-            token, err = fn_get_access_token()
-            if not err:
-                self.token = token['access_token']
-                self.expires = datetime.now() + \
-                    timedelta(seconds=token['expires_in'])
-            else:
-                self.token = None
+            self.refresh_token(fn_get_access_token)
         return self.token
 
-    def set_token(self, token):
-        self.token = token
-        self.expires = datetime.now() + timedelta(seconds=7200)
+    def refresh_token(self, fn_get_access_token):
+        token, err = fn_get_access_token()
+        if token and not err:
+            self.token = token['access_token']
+            self.expires = datetime.now() + \
+                timedelta(seconds=token['expires_in'])
+        else:
+            self.token = None
 
 
 class LocalTokenManager(TokenManager):
