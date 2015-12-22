@@ -31,6 +31,22 @@ class WxApplication(object):
     APP_ID = None
     ENCODING_AES_KEY = None
 
+    def __init__(self):
+        self.event_handlers = {
+            'subscribe': self.on_subscribe,
+            'unsubscribe': self.on_unsubscribe,
+            'SCAN': self.on_scan,
+            'LOCATION': self.on_location_update,
+            'CLICK': self.on_click,
+            'VIEW': self.on_view,
+            'scancode_push': self.on_scancode_push,
+            'scancode_waitmsg': self.on_scancode_waitmsg,
+            'pic_sysphoto': self.on_pic_sysphoto,
+            'pic_photo_or_album': self.on_pic_photo_or_album,
+            'pic_weixin': self.on_pic_weixin,
+            'location_select': self.on_location_select
+            }
+
     def is_valid_params(self, params):
         timestamp = params.get('timestamp', '')
         nonce = params.get('nonce', '')
@@ -108,26 +124,8 @@ class WxApplication(object):
     def on_location(self, loc):
         return WxTextResponse(self.UNSUPPORT_TXT, loc)
 
-    def event_map(self):
-        if getattr(self, 'event_handlers', None):
-            return self.event_handlers
-        return {
-            'subscribe': self.on_subscribe,
-            'unsubscribe': self.on_unsubscribe,
-            'SCAN': self.on_scan,
-            'LOCATION': self.on_location_update,
-            'CLICK': self.on_click,
-            'VIEW': self.on_view,
-            'scancode_push': self.on_scancode_push,
-            'scancode_waitmsg': self.on_scancode_waitmsg,
-            'pic_sysphoto': self.on_pic_sysphoto,
-            'pic_photo_or_album': self.on_pic_photo_or_album,
-            'pic_weixin': self.on_pic_weixin,
-            'location_select': self.on_location_select,
-        }
-
     def on_event(self, event):
-        func = self.event_map().get(event.Event, self.on_other_event)
+        func = self.event_handlers.get(event.Event, self.on_other_event)
         return func(event)
 
     def on_other_event(self, event):
