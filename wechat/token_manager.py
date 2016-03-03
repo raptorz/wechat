@@ -1,9 +1,12 @@
 # encoding=utf-8
 
-from datetime import datetime, timedelta
-from time import sleep
+from time import time, sleep
 
 import redis
+
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class TokenManager(object):
@@ -15,7 +18,7 @@ class TokenManager(object):
                 sleep(5)
                 if self.token:
                     break
-        elif not token or expires and expires < datetime.now():
+        elif not token or expires and expires < time():
             self.expires = None
             self.refresh_token(fn_get_access_token)
         return self.token
@@ -24,8 +27,7 @@ class TokenManager(object):
         token, err = fn_get_access_token()
         if token and not err:
             self.token = token['access_token']
-            self.expires = datetime.now() + \
-                timedelta(seconds=token['expires_in'])
+            self.expires = time() + token['expires_in']
         else:
             self.token = None
 
@@ -33,7 +35,7 @@ class TokenManager(object):
 class LocalTokenManager(TokenManager):
     def __init__(self):
         self._access_token = None
-        self._expires = datetime.now()
+        self._expires = time()
 
     @property
     def token(self):
@@ -53,14 +55,12 @@ class LocalTokenManager(TokenManager):
 
 
 class RedisTokenManager(TokenManager):
-    DATETIME_FMT = "%Y-%m-%d %H:%M:%S"
-
     def __init__(self, postfix="", **kwargs):
         self.token_name = "_".join(["access_token", postfix])
         self.expires_name = "_".join(["access_token_expires", postfix])
         self.redis = redis.Redis(**kwargs)
         if not self.expires:
-            self.expires = datetime.now()
+            self.expires = time()
 
     @property
     def token(self):
@@ -75,12 +75,8 @@ class RedisTokenManager(TokenManager):
     @property
     def expires(self):
         expires = self.redis.get(self.expires_name)
-        return datetime.strptime(
-                str(expires, "utf-8"),
-                RedisTokenManager.DATETIME_FMT) if expires else None
+        return expires
 
     @expires.setter
     def expires(self, expires):
-        self.redis.set(self.expires_name,
-                       expires.strftime(RedisTokenManager.DATETIME_FMT)
-                       if expires else None)
+        self.redis.set(self.expires_name, expires)
