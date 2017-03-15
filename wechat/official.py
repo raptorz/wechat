@@ -184,7 +184,7 @@ class WxApplication(object):
     def pre_process(self):
         pass
 
-    def post_process(self, rsp):
+    def post_process(self, rsp=None):
         pass
 
 
